@@ -1,0 +1,18 @@
+---
+- hosts: 127.0.0.1
+  connection: local
+  tasks:
+
+  - name: SAP Data Hub Install.sh  script with parameters
+    shell: |
+      export KUBECONFIG=/root/.kube/config
+      /usr/local/bin/kubectl --kubeconfig /root/.kube/config delete svc vsystem -n sdh
+
+  - name: Expose vsystem deployment to Azure Load balancer
+    command: /usr/local/bin/kubectl --kubeconfig /root/.kube/config expose deployment vsystem -n sdh --port=8797 --type=LoadBalancer
+
+  - name: Sleep for 300 seconds till Azure LB is ready
+    wait_for: timeout=300
+
+  - name: Get vsystem POD service Azure NLB public IP
+    command: /usr/local/bin/kubectl --kubeconfig /root/.kube/config get svc vsystem -n sdh

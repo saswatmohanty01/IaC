@@ -1,0 +1,103 @@
+---
+- hosts: 127.0.0.1
+  connection: local
+  tasks:
+
+  - name: Current_working_directory
+    shell: pwd
+    register: current_working_directory
+
+  - name: Add vsadmin user to sudo file
+    shell: echo '<adminuser> ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/waagent
+
+
+  - name: Register as user ( with password  and auto-subscribe to available content.
+    redhat_subscription:
+      state: present
+      username: <username>
+      password: <password>
+      auto_attach: true
+
+  # Subscribe repos from RHEL required for docker
+  - name: Subscribe RHEL repos
+    shell: |
+       subscription-manager repos --enable=rhel-7-server-rpms
+       subscription-manager repos --enable=rhel-7-server-extras-rpms
+       subscription-manager repos --enable=rhel-7-server-optional-rpms
+
+
+  - name: Import azure-cli rpm
+    command: rpm --import https://packages.microsoft.com/keys/microsoft.asc
+
+  - name: Create local azure-cli repository
+    command: sh -c 'echo -e "[azure-cli]\nname=Azure CLI\nbaseurl=https://packages.microsoft.com/yumrepos/azure-cli\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/azure-cli.repo'
+
+  - name: Yum clean expire-cache
+    command: yum clean expire-cache
+
+
+  - name: Install azure-cli yum package
+    yum:
+      name: azure-cli
+      state: latest
+
+  - name: Install docker
+    yum:
+      name:
+        - docker
+        - device-mapper-libs
+        - device-mapper-event-libs
+      state: latest
+
+
+  - name: Copy docker-runc
+    copy:
+      src: /usr/libexec/docker/docker-runc-current
+      dest: /usr/bin/docker-runc
+
+
+  - name: Enable Docker service
+    systemd:
+      name:  docker.service
+      enabled: yes
+
+  - name: Start Docker service
+    systemd:
+      state: started
+      name: docker
+
+
+  - name: Set bash profile for kubectl
+    lineinfile:
+      dest: ~/.bash_profile
+      line: 'export PATH=$PATH:/usr/local/bin'
+      insertafter: 'EOF'
+      state: present
+
+
+
+  - name: Install az aks client
+    command: az aks install-cli --client-version 1.10.13
+
+
+  - name: Azure login
+    command: az login --service-principal  --username "{{ client_id }}" --password "{{ client_secret }}" --tenant "{{ tenant_id }}"
+
+  - name: Get AKS Credentials
+    command: az aks get-credentials --resource-group "{{ resourcegroup_name }}" --name "{{ cluster_name }}" --overwrite-existing 
+
+
+
+  - name: yum-clean-metadata
+    command: yum clean metadata
+    args:
+      warn: no
+
+
+
+
+
+
+ 
+
+

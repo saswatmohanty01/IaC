@@ -1,0 +1,70 @@
+---
+- hosts: 127.0.0.1
+  connection: local
+  tasks:
+
+  - name: Azure login
+    command: az login --service-principal  --username "{{ client_id }}" --password "{{ client_secret }}" --tenant "{{ tenant_id }}"
+
+  - name: Get AKS Credentials
+    command: az aks get-credentials --resource-group "{{ resourcegroup_name }}" --name "{{ cluster_name }}" --overwrite-existing
+
+  - name: Export kube config
+    command: echo "export KUBECONFIG=$HOME/.kube/config" > $HOME/.bashrc
+    run_once: true
+
+#  - name: Export kube config from config file path
+#    command: export KUBECONFIG=/root/.kube/config
+
+#  - name: Start kubectl proxy to conenct to API server . This is fix if use command ansible is not able to communicate to AKS API without starting proxy
+#    shell: nohup kubectl proxy --port=8080 </dev/null >/dev/null 2>&1 &
+
+  - name: Enable Kubernetes dashboard
+    command: /usr/local/bin/kubectl --kubeconfig /root/.kube/config create -f /opt/ansible/rbac-dashboard.yaml
+    run_once: true
+
+  - name: Create sdh namespace
+    command: /usr/local/bin/kubectl --kubeconfig /root/.kube/config create namespace sdh
+    run_once: true
+
+  - name: Create Service account 
+    command: /usr/local/bin/kubectl --kubeconfig /root/.kube/config create -f /opt/ansible/helm-sdh.yaml
+    run_once: true
+
+  - name: Kubernetes role binding tiller
+    command: /usr/local/bin/kubectl --kubeconfig /root/.kube/config create clusterrolebinding tiller-cluster-rule --clusterrole=cluster-admin --serviceaccount=sdh:tiller
+    run_once: true
+
+  - name: Role binding for vora-cluster-rule
+    command: /usr/local/bin/kubectl --kubeconfig /root/.kube/config create clusterrolebinding vora-cluster-rule --clusterrole=cluster-admin --serviceaccount=sdh:default
+    run_once: true
+
+  - name: Download helm
+    command: wget https://storage.googleapis.com/kubernetes-helm/helm-v2.9.1-linux-amd64.tar.gz -O /opt/ansible/helm-v2.9.1-linux-amd64.tar.gz
+    run_once: true
+
+  - name: Unzip helm
+    command: tar -xvf /opt/ansible/helm-v2.9.1-linux-amd64.tar.gz
+    run_once: true
+
+  - name: Copy helm binary 
+    command: cp -u /opt/ansible/linux-amd64/helm /usr/bin/
+    run_once: true
+
+  - name: Copy helm binary to /usr/local/bin
+    command: cp -u /usr/bin/helm /usr/local/bin/helm
+    run_once: true
+
+  - name: Helm init 
+    shell: |
+      export KUBECONFIG=/root/.kube/config
+      export TILLER_NAMESPACE=sdh
+      export NAMESPACE=sdh
+      /usr/local/bin/helm init --service-account=tiller
+      /usr/local/bin/kubectl get pods --namespace kube-system | grep tiller
+      /usr/local/bin/helm ls
+      az aks list
+
+
+  - name: Login to Azure container registry
+    command: az acr login -n "{{ containerregistryname }}"

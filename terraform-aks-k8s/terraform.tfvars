@@ -1,0 +1,8 @@
+subscription_id = ""
+client_id = ""
+client_secret = "<provide client_secret>"
+tenant_id = ""
+admin_username = ""
+admin_password = ""
+sapregistrylogin = "<logindetails>"
+sapregistrypassword = "provide-password-here"

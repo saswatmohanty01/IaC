@@ -1,0 +1,37 @@
+---
+- hosts: 127.0.0.1
+  connection: local
+  tasks:
+
+  - name: SAP Data Hub Install.sh  script with parameters
+    shell: |
+      export KUBECONFIG=/root/.kube/config
+      export TILLER_NAMESPACE=sdh
+      export NAMESPACE=sdh
+      export DOCKER_REGISTRY="{{ containerloginserver }}"
+      az acr login -n "{{ containerregistryname }}"
+      echo $DOCKER_REGISTRY
+      bash /opt/SAPDataHub-2.4.83-Foundation/install.sh -a \
+      --accept-license \
+      --confirm-settings \
+      --namespace=sdh \
+      --registry="{{ containerloginserver }}" \
+      --non-interactive-mode \
+      --vora-system-password='{{ vorasystempassword }}' \
+      --vora-admin-username=datahubadm \
+      --vora-admin-password='{{ voraadminpassword }}' \
+      --interactive-security-configuration=no \
+      --enable-checkpoint-store=yes \
+      --checkpoint-store-type=wasb \
+      --checkpoint-store-connection=DefaultEndpointsProtocol=https\&AccountName="{{ wasbaccountname }}"\&AccountKey="{{ wasbaccountkey }}"\&EndpointSuffix=blob.core.windows.net\&Timeout=180\&Path="{{ wasbpath }}"/ \
+      --validate-checkpoint-store=yes \
+      --cert-domain="{{ certdomain }}" \
+      --sap-registry-login-type=1 \
+      --sap-registry-login-username="{{ sapreglogin }}" \
+      --sap-registry-login-password='{{ sapregpassword }}' \
+    register: task_result
+    until: task_result.rc == 0
+    retries: 5
+    delay: 10
+    ignore_errors: yes
+
